@@ -52,7 +52,94 @@ public class FishSlayer extends Application{
 	private double mouseX;
 	private int score;
 	
-	@Override public void start(Stage arg0) throws Exception {
+	//run graphics
+  	private void run(GraphicsContext gc) {
+  		gc.setFill(Color.grayRgb(20));
+  		gc.fillRect(0, 0, WIDTH, HEIGHT);
+  		gc.setTextAlign(TextAlignment.CENTER);
+  		gc.setFont(Font.font(20));
+  		gc.setFill(Color.WHITE);
+  		gc.fillText("Score: " + score, 60, 20);
+
+  		if(gameOver) {
+  			gc.setFont(Font.font(35));
+  			gc.setFill(Color.YELLOW);
+  			gc.fillText("GameOver \n Your Score is: " + score + "\nClick to play again", WIDTH/2, HEIGHT/2.5);
+  		}
+  		
+  		oceans.forEach(Ocean::draw);
+		
+  		player.update();
+		player.draw();
+		player.posX= (int) mouseX;
+
+		fishes.stream().peek(Ship::update).peek(Ship::draw).forEach(e ->{
+			if(player.collide(e) && !player.exploding) {
+				player.explode();
+			}
+		});
+			
+		for(int i = nets.size() - 1; i >= 0 ; i--) {
+			Net net = nets.get(i);
+			if(net.posY <0 || net.toRemove) {
+				nets.remove(i);
+				continue;
+			}
+			net.update();
+			net.draw();
+			for(Fish fish : fishes) {
+				if(net.collide(fish) && !fish.exploding) {
+					score++;
+					fish.explode();
+					net.toRemove= true;
+				}
+			}
+		}
+			
+		for(int i = fishes.size() - 1; i>=0; i--) {
+			if(fishes.get(i).destroyed) {
+				fishes.set(i,newBomb());
+			}
+		}
+		
+		gameOver = player.destroyed;
+		
+		if(RAND.nextInt(10)>2) {
+			oceans.add(new Ocean());
+		}
+		
+		for(int i = 0; i< oceans.size(); i++) {
+			if(oceans.get(i).posY > HEIGHT)
+				oceans.remove(i);
+		}
+	}
+	//start
+	public void start(Stage stage) throws Exception {
+		Canvas canvas = new Canvas(WIDTH, HEIGHT);	
+		gc = canvas.getGraphicsContext2D();
+
+		Timeline timeline = new Timeline(new KeyFrame(Duration.millis(100), e -> run(gc)));
+		timeline.setCycleCount(Timeline.INDEFINITE);
+		timeline.play();
+
+		canvas.setCursor(Cursor.MOVE);
+		canvas.setOnMouseMoved(e -> mouseX = e.getX());
+
+		canvas.setOnMouseClicked(e -> {
+			if(nets.size() < MAX_SHOTS) 
+				nets.add(player.shoot());
+			
+			if(gameOver) { 
+				gameOver = false;
+				setup();
+			}
+		});
+
+		setup();
+			
+		stage.setScene(new Scene(new StackPane(canvas)));
+		stage.setTitle("Fish Slayer");
+		stage.show();
 	}
 	
 	private void setup() {
